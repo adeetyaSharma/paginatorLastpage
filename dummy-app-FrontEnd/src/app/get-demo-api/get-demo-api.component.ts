@@ -12,6 +12,14 @@ import { MatTableDataSource } from '@angular/material/table';
 export class GetDemoAPIComponent {
   constructor(private demoService: DemoService) { }
 
+  displayedColumns: string[] = ['demo-id', 'demo-title', 'demo-description', 'demo-price', 'demo-category'];
+  dataSource = new MatTableDataSource<any>([]);
+
+  @ViewChild(MatPaginator) paginator!: MatPaginator;
+  @ViewChild('paginatorContainer', { read: ElementRef }) paginatorContainer!: ElementRef;
+
+
+
   currentPage = 1;
   totalItems = 0;
   loadedPages = new Set<number>();
@@ -19,24 +27,7 @@ export class GetDemoAPIComponent {
   totalLoadedData = 0;
   currentPageIndex = 0;
   pageIndexByPageSize = 0;
-
-  @ViewChild('paginator') paginator!: MatPaginator;
-  @ViewChild('paginatorTop') paginatorTop!: MatPaginator;
-  @ViewChild('paginatorContainerTop', { read: ElementRef }) paginatorContainerTop!: ElementRef;
-  @ViewChild('paginatorContainer', { read: ElementRef }) paginatorContainer!: ElementRef;
-
-
-  displayedColumns: string[] = ['demo-id', 'demo-title', 'demo-description', 'demo-price', 'demo-category'];
-  dataSource = new MatTableDataSource<any>([]);
-
-
-
-
-  setPaginator(paginator: MatPaginator, paginatorTop: MatPaginator) {
-    this.paginator = paginator;
-    this.paginatorTop = paginatorTop;
-
-  }
+  lastButtonClickCount = 0;
 
   ngOnInit(): void {
     this.demoService.getTotalCount().subscribe(count => {
@@ -45,22 +36,6 @@ export class GetDemoAPIComponent {
     });
   }
 
-  ngAfterViewInit(): void {
-    this.dataSource.paginator = this.paginator;
-    this.dataSource.paginator = this.paginatorTop;
-
-    //synchronizing the paginators
-    this.paginator.page.subscribe(() => this.syncPaginators(this.paginator, this.paginatorTop));
-    this.paginatorTop.page.subscribe(() => this.syncPaginators(this.paginator, this.paginatorTop));
-    this.updateNextButtonState();
-  }
-
-
-  syncPaginators(sourcePaginator: MatPaginator, targetPaginator: MatPaginator): void {
-    targetPaginator.pageIndex = sourcePaginator.pageIndex;
-    targetPaginator.pageSize = sourcePaginator.pageSize;
-    targetPaginator.length = sourcePaginator.length;
-  }
   loadProducts(page: number): void {
     if (this.loadedPages.has(page))
       return;
@@ -80,25 +55,9 @@ export class GetDemoAPIComponent {
     this.pageIndexByPageSize = this.totalItems / pageSize;
 
     this.updateNextButtonState();
+    this.updateLastButtonState();
+    this.handleFirstAndPrevButton();
   }
-
-  updateNextButtonState(): void {
-    this.updateButton(this.paginatorContainer);
-    this.updateButton(this.paginatorContainerTop);
-
-  }
-
-  updateButton(container: ElementRef): void {
-    setTimeout(() => {
-      const nextButton: HTMLButtonElement = container?.nativeElement?.querySelector('.mat-mdc-paginator-navigation-next');
-      if (nextButton) {
-        const disable = this.dataSource.data.length >= this.totalItems && this.currentPageIndex == this.pageIndexByPageSize;
-        nextButton.disabled = disable;
-        nextButton.onclick = () => this, this.handleNextButtonClick();
-      }
-    });
-  }
-
   handleNextButtonClick(): void {
     const dataLoadedInChunks = Math.floor(this.dataSource.data.length / 1000);
     const pageNumber = dataLoadedInChunks;
@@ -110,5 +69,81 @@ export class GetDemoAPIComponent {
 
 
 
+  updateNextButtonState(): void {
+    setTimeout(() => {
+      const nextButton: HTMLButtonElement = this.paginatorContainer?.nativeElement
+        ?.querySelector('.mat-mdc-paginator-navigation-next');
+
+      if (nextButton) {
+        const disable = this.dataSource.data.length >= this.totalItems && this.currentPageIndex == this.pageIndexByPageSize;
+        nextButton.disabled = disable;
+
+        nextButton.onclick = () => this.handleNextButtonClick();
+
+      }
+    });
+  }
+  //function to handle first and prev button
+  handleFirstAndPrevButton(): void {
+    setTimeout(() => {
+      const firstButton: HTMLButtonElement = this.paginatorContainer?.nativeElement
+        ?.querySelector('.mat-mdc-paginator-navigation-first');
+      const prevButton: HTMLButtonElement = this.paginatorContainer?.nativeElement
+        ?.querySelector('.mat-mdc-paginator-navigation-previous');
+      if (firstButton) {
+        firstButton.onclick = () => {
+          this.lastButtonClickCount = 0;
+
+        }
+      }
+      if (prevButton) {
+        prevButton.onclick = () => {
+          this.lastButtonClickCount = 0;
+
+        }
+      }
+    });
+  }
+  updateLastButtonState(): void {
+    setTimeout(() => {
+      const lastButton: HTMLButtonElement = this.paginatorContainer?.nativeElement
+        ?.querySelector('.mat-mdc-paginator-navigation-last');
+
+
+      if (lastButton) {
+
+        const disable = this.dataSource.data.length >= this.totalItems &&
+          this.currentPageIndex >= this.pageIndexByPageSize;
+
+        lastButton.disabled = disable;
+
+        lastButton.onclick = () => this.handleLastButtonClick();
+      }
+
+
+    });
+  }
+
+  handleLastButtonClick(): void {
+    this.lastButtonClickCount++;
+    const dataLoadedInChunks = Math.floor(this.dataSource.data.length / 1000);
+    const pageNumber = dataLoadedInChunks;
+
+
+    if ((this.totalLoadedData == this.dataSource.data.length && this.currentPageIndex != this.pageIndexByPageSize) && (this.lastButtonClickCount % 2 == 0)) {
+
+      this.loadProducts(pageNumber + 1)
+    }
+  }
+
+
+
+  ngAfterViewInit(): void {
+    this.dataSource.paginator = this.paginator;
+
+    this.updateNextButtonState();
+    this.updateLastButtonState();
+    this.handleFirstAndPrevButton();
+  }
 
 }
